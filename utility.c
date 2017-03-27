@@ -25,7 +25,7 @@ char *command = "./process";
 
 int alloc_mem(proc p)
 {
-    printf("ALLOCATING\n");
+   // printf("ALLOCATING\n");
  	if (p.suspended) {
  		return 1;
  	}
@@ -51,7 +51,7 @@ void free_mem()
      avail.modems = 1;
      avail.cds = 2;
      //add avail_mem freeing
-     printf("FREE\n");
+     //printf("FREE\n");
  }
 
 void print_res(proc p)
@@ -135,7 +135,7 @@ void load_dispatch(char *dispatch_file, node_t *queue)
         p[lines].address = 0;
 
         push(queue, p[lines]);
-        print_res(p[lines]);
+        //print_res(p[lines]);
 
     }
 

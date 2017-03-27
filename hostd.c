@@ -65,12 +65,13 @@ void execute_process( proc proc)
          //printf("exec?\n");
                 execv("./process", arg);
                 exit(5);
-                _exit (EXIT_FAILURE);
         }
 
         else
         {
             /* This is the parent process.  Wait for the child to complete.  */
+            if (proc.priority == 0)
+            {
             sleep(proc.pr_time);
             kill(pid, SIGINT);
             waitpid(pid, &status, 0);
@@ -78,6 +79,47 @@ void execute_process( proc proc)
             if (!status)
             {
                 printf("TERMINATED\n");
+            }
+            }
+            else
+            {
+                if (proc.suspended)
+                {
+                sleep(1);
+                kill(pid, SIGCONT);
+                } 
+                else
+                {
+                    sleep(1);
+                kill(pid, SIGTSTP);
+                }
+                proc.pr_time--;
+                proc.suspended = 1;
+                if (!proc.pid)
+                    proc.pid = pid;
+            if (proc.pr_time >= 0)
+            {
+            if (proc.priority == 1 || proc.priority == 2)
+            {
+                
+                //deallocateMemory(avail_mem, current);
+                proc.priority++;
+                if (proc.priority == 1)
+                {
+                    push(p3, proc);
+                }
+                if (proc.priority == 2)
+                {
+                    push(p4, proc);
+                }
+
+            }
+            if (proc.priority == 3)
+                {
+                    push(p4, proc);
+                }
+            }
+            
             }
             free_mem();
         }
@@ -117,16 +159,43 @@ int main(int argc, char *argv[])
   // printf("%d\n", avail.printers);
     // Load the dispatchlist
     load_dispatch("dispatchlist", dispatch);
-    printf("\n");
+    printf("DISPATCHING\n");
     queue_up(dispatch);
     
    // /*
-    node_t * current = dispatch->next; //skip the head
+    node_t * current = real->next; //real first
 
     while (current != NULL) {
         execute_process(current->process);
+      //  printf("%d\n", current->process.pr_time);
         current = current->next;
     }
+
+     current = p2->next; //skip the head
+
+    while (current != NULL) {
+        execute_process(current->process);
+      //  printf("%d\n", current->process.pr_time);
+        current = current->next;
+    } //execute all real time first, FIFO style
+
+    current = p3->next; //skip the head
+
+    while (current != NULL) {
+        execute_process(current->process);
+      //  printf("%d\n", current->process.pr_time);
+        current = current->next;
+    } //execute all real time first, FIFO style
+
+    current = p4->next; //skip the head
+
+    while (current != NULL) {
+        execute_process(current->process);
+      //  printf("%d\n", current->process.pr_time);
+        current = current->next;
+    } //execute all real time first, FIFO style
+
+        printf("COMPLETE. THANK YOU.\n");
   //  */
    // print_queue(real);
    // print_queue(p2);
