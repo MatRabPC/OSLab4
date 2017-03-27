@@ -14,7 +14,7 @@
 // push and pop functions that you declared in your header file
 
 node_t *push(node_t *head, proc process)
-{
+{ 
     node_t * current = head;
     while (current->next != NULL) {
         current = current->next;
@@ -22,14 +22,7 @@ node_t *push(node_t *head, proc process)
 
     /* now we can add a new variable */
     current->next = malloc(sizeof(node_t));
-    strcpy(current->next->process.name, process.name);
-    current->next->process.priority = process.priority;
-    current->next->process.pid = process.pid;
-    current->next->process.address = process.address;
-    current->next->process.memory = process.memory;
-    current->next->process.runtime = process.runtime;
-    current->next->process.address = process.address;
-    current->next->process.suspended = process.suspended;
+    current->next->process = process; //dont know why i didnt do it this way before
     current->next->next = NULL;
 
     return current;

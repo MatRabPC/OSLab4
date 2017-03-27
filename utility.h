@@ -15,10 +15,6 @@
 // array of 1024 for the memory
 typedef struct {
 
-    int arrival;
-    int priority;
-    int pr_time;
-    int mbytes;
     int printers;
     int scanners;
     int modems;
@@ -27,19 +23,21 @@ typedef struct {
 } resources;
 
 
+resources avail;
 // Processes structure containing all of the process details parsed from the 
 // input file, should also include the memory address (an index) which indicates
 // where in the resources memory array its memory was allocated
 
 typedef struct {
 
-    char name[256];
+    int arrival;
+    int pr_time;
+    int mbytes;
     int priority;
     int pid;
     int address;
-    int memory;
-    int runtime;
     int suspended;
+    resources res;
 
 } proc;
 
@@ -51,8 +49,8 @@ typedef struct {
 // memory array, always make sure you leave the last 64 values (64 MB) free, should
 // return the index where the memory was allocated at
 // extern int alloc_mem(resources res, int size);
-extern void print_res(resources res);
-
+extern void print_res(proc p);
+extern int countLines(char *file);
 // Function to free the allocated contiguous chunk of memory in your resources
 // structure memory array, should take the resource struct, start index, and 
 // size (amount of memory allocated) as arguments
