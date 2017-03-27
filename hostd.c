@@ -47,7 +47,7 @@ void queue_up(node_t *queue)
     }
 }
 
-void execute_process( proc proc)
+int execute_process( proc proc)
 {
     int status;
     char *arg[256];
@@ -57,7 +57,35 @@ void execute_process( proc proc)
      
     if (alloc_mem(proc))
     {
-       
+        if (proc.priority == 0)//get done first
+        {
+            pid = fork();
+            if (pid == 0)
+            {
+            /* This is the child process.  Execute the shell command. */
+                execv("./process", arg);
+                exit(0);
+            }//end child
+
+            else
+            {
+                /* This is the parent process.  Wait for the child to complete.  */
+                sleep(proc.pr_time);
+                kill(pid, SIGINT);
+                waitpid(-1, &status, 0);
+                //deallocateMemory(avail_mem, current);
+                if (!status)
+                {
+                    printf("TERMINATED\n");
+                }
+            } //end parent
+           return 0;
+        }//end realtime
+
+        ////>>>>>>>>>>><<<<<<<<<<<<<<////
+
+       if (!proc.suspended) //if first run
+       {
         pid = fork();
         if (pid == 0)
         {
@@ -70,39 +98,27 @@ void execute_process( proc proc)
         else
         {
             /* This is the parent process.  Wait for the child to complete.  */
-            if (proc.priority == 0)
-            {
-            sleep(proc.pr_time);
-            kill(pid, SIGINT);
-            waitpid(pid, &status, 0);
-            //deallocateMemory(avail_mem, current);
-            if (!status)
-            {
-                printf("TERMINATED\n");
-            }
-            }
-            else
-            {
-                if (proc.suspended)
-                {
-                sleep(1);
-                kill(pid, SIGCONT);
-                } 
-                else
-                {
-                    sleep(1);
-                kill(pid, SIGTSTP);
-                }
-                proc.pr_time--;
-                proc.suspended = 1;
-                if (!proc.pid)
-                    proc.pid = pid;
-            if (proc.pr_time >= 0)
-            {
+            proc.pid = pid;
+            sleep(1);
+            kill(pid, SIGTSTP);        
+            proc.pr_time--;
+            proc.suspended = 1;
+            
+        }//end parent
+        } //done non suspense
+
+       else
+       {
+           kill(proc.pid, SIGCONT);
+           sleep(1);
+           kill(proc.pid, SIGTSTP);
+           proc.pr_time--;
+       }//end suspense
+
+       if (proc.pr_time >= 1) //if time left
+        {
             if (proc.priority == 1 || proc.priority == 2)
             {
-                
-                //deallocateMemory(avail_mem, current);
                 proc.priority++;
                 if (proc.priority == 1)
                 {
@@ -118,19 +134,24 @@ void execute_process( proc proc)
                 {
                     push(p4, proc);
                 }
-            }
-            
-            }
-            free_mem();
-        }
+        }//end time
 
-    }
+        
+        else //no time
+            {
+                kill(proc.pid, SIGINT);
+                waitpid(proc.pid, &status, 0);
+            }
+
+        free_mem();
+         }//end exec
+
     else
     {
         printf("NOT ENOUGH RESOURCES\n");
     }
-
-}
+    return 1;
+}         
 
 
 int main(int argc, char *argv[])
@@ -195,6 +216,7 @@ int main(int argc, char *argv[])
         current = current->next;
     } //execute all real time first, FIFO style
 
+       // sleep(3); //to finish prints and all
         printf("COMPLETE. THANK YOU.\n");
   //  */
    // print_queue(real);
