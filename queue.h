@@ -23,7 +23,6 @@ typedef struct node {
 // to the linked list
 
 extern node_t *push(node_t *head, proc process);
-
 extern node_t *pop(node_t *tail);
 
 

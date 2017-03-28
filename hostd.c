@@ -17,16 +17,14 @@
 #include "utility.h"
 #include "hostd.h"
 
-// Put macros or constants here using #define
-#define MEMORY 1024
-int avail_mem[MEMORY];
 
-
+//global queues
 node_t *dispatch = NULL, *real = NULL, *p2 = NULL, *p3 = NULL, *p4 = NULL;
-// Put global environment variables here
 
+
+void queue_up(node_t *queue);
+int execute_process(proc proc);
 // Define functions declared in hostd.h here
-
 
 void queue_up(node_t *queue)
 {
@@ -41,82 +39,53 @@ void queue_up(node_t *queue)
             push(p3, current->process);
         if (current->process.priority == 3)
             push(p4, current->process);
-
+        //simply sorting them by priority
         current = current->next;
 
     }
 }
 
-int execute_process( proc proc)
+int execute_process(proc proc)
 {
-    int status;
+	int status;
+	pid_t pid;
     char *arg[256];
-    pid_t pid;
- 
-    print_res(proc);
-     
-    if (alloc_mem(proc))
-    {
-        if (proc.priority == 0)//get done first
-        {
-            pid = fork();
-            if (pid == 0)
-            {
-            /* This is the child process.  Execute the shell command. */
-                execv("./process", arg);
-                exit(0);
-            }//end child
 
-            else
-            {
-                /* This is the parent process.  Wait for the child to complete.  */
-                sleep(proc.pr_time);
-                kill(pid, SIGINT);
-                waitpid(-1, &status, 0);
-                //deallocateMemory(avail_mem, current);
-                if (!status)
-                {
-                    printf("TERMINATED\n");
-                }
-            } //end parent
-           return 0;
-        }//end realtime
+	if (!proc.suspended) { //check if it was suspended or not
 
-        ////>>>>>>>>>>><<<<<<<<<<<<<<////
+		pid = fork(); //fork the child
+		if (pid == 0) 
+        { //CHILD
+			execv("./process", arg);
+			exit(0);
+		} 
 
-       if (!proc.suspended) //if first run
-       {
-        pid = fork();
-        if (pid == 0)
-        {
-         /* This is the child process.  Execute the shell command. */
-         //printf("exec?\n");
-                execv("./process", arg);
-                exit(5);
-        }
+        else if (pid < 0) //FORK FAILED
+			status = -1;
+	
+        else 
+        { //PARENT
 
-        else
-        {
-            /* This is the parent process.  Wait for the child to complete.  */
-            proc.pid = pid;
-            sleep(1);
-            kill(pid, SIGTSTP);        
-            proc.pr_time--;
-            proc.suspended = 1;
+			proc.pid = pid; //set pid
+			print_res(proc); //print stats about current process
+
+			if (proc.priority == 0) { //realtime, complete first
+				sleep(proc.pr_time); //sleep for the runtime
+				kill(pid, SIGINT);
+				waitpid(proc.pid, &status, WUNTRACED);
+                printf("TERMINATED PID %d\n", proc.pid);
+				free_mem(proc); //deallocate the memory, does not use resources
+
+			} 
             
-        }//end parent
-        } //done non suspense
+            else //not realtimes
+            {
+				sleep(1);
+				proc.pr_time--; //decrease the runtime
+				kill(pid, SIGTSTP); //suspend the operation
+                proc.suspended = 1; //set int bool thing
 
-       else
-       {
-           kill(proc.pid, SIGCONT);
-           sleep(1);
-           kill(proc.pid, SIGTSTP);
-           proc.pr_time--;
-       }//end suspense
-
-       if (proc.pr_time >= 1) //if time left
-        {
+				//shift to lower queue
             if (proc.priority == 1 || proc.priority == 2)
             {
                 proc.priority++;
@@ -134,31 +103,62 @@ int execute_process( proc proc)
                 {
                     push(p4, proc);
                 }
-        }//end time
 
-        
-        else //no time
-            {
-                kill(proc.pid, SIGINT);
-                waitpid(proc.pid, &status, 0);
-            }
+			}
 
-        free_mem();
-         }//end exec
-
-    else
+		}
+	} //end of IF NOT SUSPENDED PROC 
+    
+    else 
     {
-        printf("NOT ENOUGH RESOURCES\n");
-    }
-    return 1;
-}         
+		print_res(proc); //spit out stats
+
+		kill(proc.pid, SIGCONT); //signal the process to continue
+		sleep(1);
+		kill(proc.pid, SIGTSTP); //suspend
+
+		if (proc.pr_time <= 1) { //kill process if finished
+			kill(proc.pid, SIGINT);
+			waitpid(proc.pid, &status, WUNTRACED);
+            printf("TERMINATED PID %d\n", proc.pid);
+			free_mem(proc); //deallocate the used memory
+			free_res(proc); //free the resources
+
+		} 
+        
+        else 
+        { //if still runtime left
+
+			proc.pr_time--; //decrement runtime
+            //add to the next list
+            if (proc.priority == 1 || proc.priority == 2)
+            {
+                proc.priority++;
+                if (proc.priority == 1)
+                {
+                    push(p3, proc);
+                }
+                if (proc.priority == 2)
+                {
+                    push(p4, proc);
+                }
+
+            }
+            if (proc.priority == 3)
+                {
+                    push(p4, proc);
+                }
+		}
+
+	}//end SUSPENDED block
+   
+}
 
 
 int main(int argc, char *argv[])
 {
-    // ==================== YOUR CODE HERE ==================== //
     dispatch = malloc(sizeof(node_t));
- 	dispatch->next = NULL;
+ 	dispatch->next = NULL; 
     
     real = malloc(sizeof(node_t));
  	real->next = NULL;
@@ -171,58 +171,82 @@ int main(int argc, char *argv[])
 
     p4 = malloc(sizeof(node_t));
  	p4->next = NULL;
+     //setting up queues, freeing memory
 
     avail.printers = 2;
     avail.scanners = 1;
     avail.cds = 2;
     avail.modems = 2;
+    //set up resources
 
-  // printf("%d\n", avail.printers);
     // Load the dispatchlist
     load_dispatch("dispatchlist", dispatch);
+    //load_dispatch(argv[1], dispatch); //uncomment to work with the execute line ./hostd dispatchlist
     printf("DISPATCHING\n");
-    queue_up(dispatch);
+    queue_up(dispatch); //split everything up by priority
     
-   // /*
-    node_t * current = real->next; //real first
+    node_t * current = real->next; //realtime first
+
+    //below, we check our memory and execute the processes
 
     while (current != NULL) {
-        execute_process(current->process);
-      //  printf("%d\n", current->process.pr_time);
+        if (alloc_mem(&current->process) && alloc_res(current->process)) //allocate
+            execute_process(current->process);
         current = current->next;
     }
 
-     current = p2->next; //skip the head
+     current = p2->next; //priority 1
 
     while (current != NULL) {
-        execute_process(current->process);
-      //  printf("%d\n", current->process.pr_time);
+        if (alloc_mem(&current->process) && alloc_res(current->process))
+            execute_process(current->process);
+        else
+        {
+          //  printf("NOT ENOUGH RESOURCES\n");
+            push(p3, current->process); //push to end of lower
+            pop(p2); //remove from current
+        }
         current = current->next;
-    } //execute all real time first, FIFO style
+    } 
 
-    current = p3->next; //skip the head
+    current = p3->next; //priority 2
 
     while (current != NULL) {
-        execute_process(current->process);
-      //  printf("%d\n", current->process.pr_time);
+        if (alloc_mem(&current->process) && alloc_res(current->process))
+            execute_process(current->process);
+        else
+        {
+           // printf("NOT ENOUGH RESOURCES\n");
+            push(p4, current->process); //push to end of lower
+            pop(p3); //remove from current
+        }
         current = current->next;
-    } //execute all real time first, FIFO style
+    } 
 
-    current = p4->next; //skip the head
+    current = p4->next; //priority 3
 
+    int c = 0;
     while (current != NULL) {
-        execute_process(current->process);
-      //  printf("%d\n", current->process.pr_time);
+        if (alloc_mem(&current->process) && alloc_res(current->process))
+            execute_process(current->process);
+        else
+        {
+            //printf("NOT ENOUGH RESOURCES\n");
+            push(p4, current->process); //push to end
+            pop(p4); //remove from current
+        }
         current = current->next;
-    } //execute all real time first, FIFO style
+        c++;
+        if (c > 2000)
+        {
+            break;
+        }
+    } 
 
-       // sleep(3); //to finish prints and all
-        printf("COMPLETE. THANK YOU.\n");
+        sleep(2); //to finish prints and all
+        printf("COMPLETE.\n");
   //  */
-   // print_queue(real);
-   // print_queue(p2);
-   // print_queue(p3);
-   // print_queue(p4);
+
     // Add each process structure instance to the job dispatch list queue
 
     // Iterate through each item in the job dispatch list, add each process
@@ -236,11 +260,5 @@ int main(int argc, char *argv[])
 
     // Repeat until all processes have been executed, all queues are empty
 
-    /* 
-    while (current != NULL) { //iterate through queue loop, easy coffee-pasta
-
-        current = current->next;
-    }
-    */
     return EXIT_SUCCESS;
 }

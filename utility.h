@@ -10,6 +10,7 @@
 
 // The amount of available memory
 #define MEMORY 1024
+//#include "queue.h"
 
 // Resources structure containing integers for each resource constraint and an
 // array of 1024 for the memory
@@ -50,7 +51,13 @@ typedef struct {
 // return the index where the memory was allocated at
 // extern int alloc_mem(resources res, int size);
 extern void print_res(proc p);
-extern int countLines(char *file);
+extern int alloc_res(proc p);
+extern void free_res(proc p);
+extern void free_mem(proc p);
+extern int alloc_mem(proc *p);
+//extern void print_queue(node_t *queue);
+//extern void load_dispatch(char *dispatch_file, node_t *queue);
+
 // Function to free the allocated contiguous chunk of memory in your resources
 // structure memory array, should take the resource struct, start index, and 
 // size (amount of memory allocated) as arguments
